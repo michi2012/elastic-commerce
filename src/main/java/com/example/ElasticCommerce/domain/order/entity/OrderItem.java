@@ -28,7 +28,7 @@ public class OrderItem {
     private int quantity;
 
     @Column(nullable = false)
-    private long price; // 단가
+    private long price;
 
     @Builder
     public OrderItem(Product product, int quantity, long price) {

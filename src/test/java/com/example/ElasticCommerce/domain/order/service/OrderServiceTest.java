@@ -48,7 +48,6 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
-        // 1) 테스트용 User 준비
         testUser = User.builder()
                        .username("testuser")
                        .email("test@example.com")
@@ -58,7 +57,6 @@ class OrderServiceTest {
                        .build();
         ReflectionTestUtils.setField(testUser, "userId", 1L);
 
-        // 2) 테스트용 Product 준비
         productA = Product.builder()
                           .productCode("P-A")
                           .name("Product A")
@@ -71,7 +69,6 @@ class OrderServiceTest {
                           .build();
         ReflectionTestUtils.setField(productA, "id", 10L);
 
-        // 3) 테스트용 OrderItem 준비
         itemA = OrderItem.builder()
                          .product(productA)
                          .quantity(2)

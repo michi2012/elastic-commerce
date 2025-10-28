@@ -98,23 +98,16 @@ class CouponServiceTest {
 
     private User testUser;
 
-    /**
-     * 각 테스트 전에 DB와 Redis를 “완전히 초기화”하고, 테스트 전용 유저를 생성합니다.
-     * Propagation.REQUIRES_NEW를 사용해 해당 로직만 별도 트랜잭션에서 즉시 커밋되도록 보장합니다.
-     */
     @BeforeEach
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     void setUp() {
-        // 1) DB 초기화 → 별도 트랜잭션(새로운 트랜잭션)에서 즉시 커밋
         userCouponRepository.deleteAll();
         couponRepository.deleteAll();
         userRepository.deleteAll();
         userRepository.flush();
 
-        // 2) Redis 초기화 (키 전부 삭제)
         couponStockRepository.deleteAllKeys();
 
-        // 3) 테스트용 유저 생성 → 즉시 커밋
         testUser = userRepository.save(
                 User.builder()
                     .username("testUser")
@@ -127,7 +120,6 @@ class CouponServiceTest {
         userRepository.flush();
     }
 
-    // ─── 테스트 전용 Clock 빈 (2025-06-05 00:00 KST 고정) ─────────────────────────
     @TestConfiguration
     static class ClockTestConfig {
         @Bean

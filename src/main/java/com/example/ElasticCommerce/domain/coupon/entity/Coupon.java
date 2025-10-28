@@ -64,7 +64,7 @@ public class Coupon extends BaseEntity {
     public Long calculateDiscountAmount(Long orderAmount) {
         if (discountType == DiscountType.FIXED) {
             return Math.min(discountValue, orderAmount);
-        } else { // PERCENT
+        } else {
             return Math.floorDiv(orderAmount * discountValue, 100);
         }
     }
