@@ -89,7 +89,6 @@ public class CouponService {
 
         Long newStock = couponStockRepository.decrement(couponCode);
         if (newStock < 0) {
-            couponStockRepository.increment(couponCode);
             throw new BadRequestException(CouponExceptionType.COUPON_OUT_OF_STOCK);
         }
 
