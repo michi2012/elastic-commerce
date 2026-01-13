@@ -5,6 +5,7 @@ import com.example.ElasticCommerce.global.exception.response.ExceptionResponse;
 import com.example.ElasticCommerce.global.exception.type.*;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.HttpStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -107,6 +108,13 @@ public class GlobalExceptionHandler {
         log.warn("[" + e.getClass() + "] : " + e.getMessage());
         return ResponseEntity.badRequest()
                 .body(ExceptionResponse.from(e.getExceptionType()));
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ExceptionResponse> handleInternalServerException(final InternalServerException e) {
+
+        return ResponseEntity.status(HttpStatus.SC_INTERNAL_SERVER_ERROR)
+                             .body(ExceptionResponse.from(e.getExceptionType()));
     }
 
 }

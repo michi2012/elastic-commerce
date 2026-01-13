@@ -16,6 +16,7 @@ import com.example.ElasticCommerce.domain.coupon.service.kafka.CouponKafkaProduc
 import com.example.ElasticCommerce.domain.user.exception.UserExceptionType;
 import com.example.ElasticCommerce.domain.user.repository.UserRepository;
 import com.example.ElasticCommerce.global.exception.type.BadRequestException;
+import com.example.ElasticCommerce.global.exception.type.InternalServerException;
 import com.example.ElasticCommerce.global.exception.type.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,6 +28,8 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.example.ElasticCommerce.domain.coupon.exception.CouponExceptionType.COUPON_INTERNAL_ERROR;
 
 @Service
 @RequiredArgsConstructor
@@ -92,8 +95,13 @@ public class CouponService {
             throw new BadRequestException(CouponExceptionType.COUPON_OUT_OF_STOCK);
         }
 
-        CouponKafkaDTO kafkaDTO = CouponKafkaDTO.from(userId, coupon, now);
-        couponKafkaProducerService.sendCoupon("coupon-topic", kafkaDTO);
+        try {
+            CouponKafkaDTO kafkaDTO = CouponKafkaDTO.from(userId, coupon, now);
+            couponKafkaProducerService.sendCoupon("coupon-topic", kafkaDTO);
+        } catch (Exception e) {
+            couponStockRepository.increment(couponCode);
+            throw new InternalServerException(COUPON_INTERNAL_ERROR);
+        }
     }
 
     @Transactional
