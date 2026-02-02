@@ -18,6 +18,7 @@ import com.example.ElasticCommerce.domain.user.repository.UserRepository;
 import com.example.ElasticCommerce.global.exception.type.BadRequestException;
 import com.example.ElasticCommerce.global.exception.type.InternalServerException;
 import com.example.ElasticCommerce.global.exception.type.NotFoundException;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +34,7 @@ import static com.example.ElasticCommerce.domain.coupon.exception.CouponExceptio
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CouponService {
 
     private final CouponRepository couponRepository;
@@ -72,7 +74,6 @@ public class CouponService {
         return coupon.getCouponId();
     }
 
-    @Transactional
     public void issueUserCoupon(IssueUserCouponRequest dto) {
         Long userId    = dto.userId();
         String couponCode = dto.couponCode();
