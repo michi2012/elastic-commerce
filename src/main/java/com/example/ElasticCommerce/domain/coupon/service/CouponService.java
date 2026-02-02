@@ -89,9 +89,8 @@ public class CouponService {
         userCouponRepository.findByUserIdAndCouponCode(userId, couponCode)
                             .ifPresent(uc -> { throw new BadRequestException(CouponExceptionType.COUPON_DUPLICATE_ISSUE); });
 
-        couponStockRepository.setIfAbsent(couponCode, coupon.getQuantity());
-
         Long newStock = couponStockRepository.decrement(couponCode);
+
         if (newStock < 0) {
             throw new BadRequestException(CouponExceptionType.COUPON_OUT_OF_STOCK);
         }
