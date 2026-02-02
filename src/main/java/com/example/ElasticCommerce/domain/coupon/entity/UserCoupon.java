@@ -11,7 +11,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "user_coupons")
+@Table(name = "user_coupons", indexes = {
+        @Index(name = "idx_user_coupon_check", columnList = "user_id, coupon_code", unique = true)
+})
 public class UserCoupon extends BaseEntity {
 
     @Id
