@@ -1,14 +1,14 @@
 package com.example.ElasticCommerce.domain.coupon.repository;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
 public class CouponStockRepository {
-    private final RedisTemplate<String, String> redisTemplate;
 
+    private final StringRedisTemplate redisTemplate;
     private String stockKey(String couponCode) {
         return "coupon-stock:" + couponCode;
     }

@@ -33,6 +33,7 @@ dependencies {
 	implementation 'org.springframework.kafka:spring-kafka'
 
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310' // LocalDateTime 직렬화용
 
 	testImplementation "org.testcontainers:testcontainers:1.19.0"
 	testImplementation "org.testcontainers:junit-jupiter:1.19.0"

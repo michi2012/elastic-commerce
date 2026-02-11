@@ -18,12 +18,13 @@ import com.example.ElasticCommerce.domain.user.repository.UserRepository;
 import com.example.ElasticCommerce.global.exception.type.BadRequestException;
 import com.example.ElasticCommerce.global.exception.type.InternalServerException;
 import com.example.ElasticCommerce.global.exception.type.NotFoundException;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -42,6 +43,8 @@ public class CouponService {
     private final UserRepository userRepository;
     private final CouponStockRepository couponStockRepository;
     private final CouponKafkaProducerService couponKafkaProducerService;
+    private final CouponCacheService couponCacheService;
+    private final RedisTemplate<String, Object> redisTemplate;
     private final Clock clock;
 
     @Transactional
@@ -70,6 +73,7 @@ public class CouponService {
 
         couponRepository.save(coupon);
         couponStockRepository.setIfAbsent(request.couponCode(), request.quantity());
+        couponCacheService.putCouponCache(coupon);
 
         return coupon.getCouponId();
     }
@@ -79,27 +83,34 @@ public class CouponService {
         String couponCode = dto.couponCode();
         LocalDateTime now = LocalDateTime.now(clock);
 
-        Coupon coupon = couponRepository.findByCouponCode(couponCode)
-                                        .orElseThrow(() -> new NotFoundException(CouponExceptionType.COUPON_NOT_FOUND));
+        CouponRedisDto couponMeta = couponCacheService.getCouponMeta(couponCode);
 
-        if (coupon.isExpired(now)) {
+        if (couponMeta.isExpired(now)) {
             throw new BadRequestException(CouponExceptionType.COUPON_EXPIRED);
         }
 
-        userCouponRepository.findByUserIdAndCouponCode(userId, couponCode)
-                            .ifPresent(uc -> { throw new BadRequestException(CouponExceptionType.COUPON_DUPLICATE_ISSUE); });
+        //  중복 발급 검증
+        // SADD 명령어는 Set에 값이 추가되면 1, 이미 있으면 0을 반환합니다.
+        Long isAdded = redisTemplate.opsForSet().add("applied_user:" + couponCode, String.valueOf(userId));
+
+        if (isAdded != null && isAdded == 0) {
+            throw new BadRequestException(CouponExceptionType.COUPON_DUPLICATE_ISSUE);
+        }
 
         Long newStock = couponStockRepository.decrement(couponCode);
 
         if (newStock < 0) {
+            couponStockRepository.increment(couponCode); // 재고 원복
+            redisTemplate.opsForSet().remove("applied_user:" + couponCode, String.valueOf(userId));
             throw new BadRequestException(CouponExceptionType.COUPON_OUT_OF_STOCK);
         }
 
         try {
-            CouponKafkaDTO kafkaDTO = CouponKafkaDTO.from(userId, coupon, now);
+            CouponKafkaDTO kafkaDTO = new CouponKafkaDTO(userId, couponCode);
             couponKafkaProducerService.sendCoupon("coupon-topic", kafkaDTO);
         } catch (Exception e) {
             couponStockRepository.increment(couponCode);
+            redisTemplate.opsForSet().remove("applied_user:" + couponCode, String.valueOf(userId));
             throw new InternalServerException(COUPON_INTERNAL_ERROR);
         }
     }
@@ -151,7 +162,7 @@ public class CouponService {
         userRepository.findById(userId)
                       .orElseThrow(() -> new NotFoundException(UserExceptionType.NOT_FOUND_USER));
 
-        CouponKafkaDTO kafkaDTO = CouponKafkaDTO.from(userId, coupon, now);
+        CouponKafkaDTO kafkaDTO = new CouponKafkaDTO(userId, couponCode);
         couponKafkaProducerService.sendCoupon("coupon-topic", kafkaDTO);
     }
 

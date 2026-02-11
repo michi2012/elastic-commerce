@@ -53,13 +53,6 @@ public class CouponKafkaConsumerService {
         }
 
         String code = dto.couponCode();
-        int updated = couponRepository.decrementQuantity(code);
-        if (updated != 1) {
-            log.warn("[CONSUMER] 재고 부족 또는 잘못된 코드: {}", code);
-            couponStockRepository.increment(code);
-            ack.acknowledge();
-            return;
-        }
 
         try {
             // 발급 기록 저장

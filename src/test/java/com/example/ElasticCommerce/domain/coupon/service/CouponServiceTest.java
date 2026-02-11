@@ -94,6 +94,8 @@ class CouponServiceTest {
     private ObjectMapper objectMapper;
     @Autowired
     private CouponKafkaProducerService couponKafkaProducerService;
+    @Autowired
+    private CouponCacheService couponCacheService;
     // ─────────────────────────────────────────────────────────────────────────────
 
     private User testUser;
@@ -233,6 +235,10 @@ class CouponServiceTest {
         // saveAndFlush를 호출하면 JPA가 바로 INSERT 쿼리를 날려 DB에 커밋합니다.
         couponRepository.saveAndFlush(coupon);
 
+        couponCacheService.putCouponCache(coupon);
+        // 재고 Redis 설정
+        couponStockRepository.setInitialStock(coupon.getCouponCode(), coupon.getQuantity());
+
         // ─── 2) 사용자에게 쿠폰 발급 요청 (Kafka 프로듀싱 → Consumer가 처리) ────────
         IssueUserCouponRequest dto = new IssueUserCouponRequest(testUser.getUserId(), "USER50");
         couponService.issueUserCoupon(dto);
@@ -259,8 +265,8 @@ class CouponServiceTest {
         assertThat(uc.getUser().getUserId()).isEqualTo(testUser.getUserId());
         assertThat(uc.isUsed()).isFalse();
 
-        Coupon updated = couponRepository.findById(coupon.getCouponId()).orElseThrow();
-        assertThat(updated.getQuantity()).isEqualTo(4);
+        Long stock = couponStockRepository.getStock("USER50");
+        assertThat(stock).isEqualTo(4L);
     }
 
     @Test
@@ -277,6 +283,9 @@ class CouponServiceTest {
                               .quantity(10)
                               .build();
         couponRepository.save(coupon);
+
+        couponCacheService.putCouponCache(coupon);
+        couponStockRepository.setInitialStock(coupon.getCouponCode(), coupon.getQuantity());
 
         IssueUserCouponRequest dto = new IssueUserCouponRequest(testUser.getUserId(), "EXPIRED");
         assertThatThrownBy(() -> couponService.issueUserCoupon(dto))
@@ -298,6 +307,9 @@ class CouponServiceTest {
                               .build();
         couponRepository.save(coupon);
 
+        couponCacheService.putCouponCache(coupon);
+        couponStockRepository.setInitialStock(coupon.getCouponCode(), 0);
+
         IssueUserCouponRequest dto = new IssueUserCouponRequest(testUser.getUserId(), "ZERO_STOCK");
         assertThatThrownBy(() -> couponService.issueUserCoupon(dto))
                 .isInstanceOf(BadRequestException.class);
@@ -317,6 +329,9 @@ class CouponServiceTest {
                               .quantity(10)
                               .build();
         couponRepository.save(coupon);
+
+        couponCacheService.putCouponCache(coupon);
+        couponStockRepository.setInitialStock(coupon.getCouponCode(), 10);
 
         // ─── 2) 사용자에게 쿠폰 발급 요청 (Kafka 비동기 처리) ────────────────────────
         IssueUserCouponRequest issueDto =
@@ -371,6 +386,9 @@ class CouponServiceTest {
                               .quantity(5)
                               .build();
         couponRepository.save(coupon);
+
+        couponCacheService.putCouponCache(coupon);
+        couponStockRepository.setInitialStock(coupon.getCouponCode(), 5);
 
         // 2) 사용자에게 쿠폰 발급 호출 (Kafka 프로듀싱 → Consumer가 비동기로 DB에 삽입)
         IssueUserCouponRequest issueDto =
@@ -428,6 +446,9 @@ class CouponServiceTest {
                               .build();
         couponRepository.saveAndFlush(coupon);
 
+        couponCacheService.putCouponCache(coupon);
+        couponStockRepository.setInitialStock("CONC100", 100);
+
         // 2) 1000명 유저 미리 저장 (flush → 즉시 커밋)
         for (int i = 0; i < 1000; i++) {
             User u = User.builder()
@@ -466,10 +487,8 @@ class CouponServiceTest {
 
         assertAll(
                 () -> {
-                    // DB 상에서 쿠폰 재고가 0인지 확인
-                    Coupon finalCoupon = couponRepository.findByCouponCode("CONC100")
-                                                         .orElseThrow();
-                    assertThat(finalCoupon.getQuantity()).isEqualTo(0);
+                    Long redisStock = couponStockRepository.getStock("CONC100");
+                    assertThat(redisStock).isEqualTo(0L);
                 },
                 () -> {
                     // UserCoupon 테이블에는 100개만 생성되어야 한다
