@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,8 @@ public class CouponKafkaConsumerService {
     private final UserRepository userRepository;
     private final CouponStockRepository couponStockRepository;
     private final ObjectMapper objectMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
+
 
     @KafkaListener(
             topics = "coupon-topic",
@@ -53,6 +56,7 @@ public class CouponKafkaConsumerService {
         }
 
         String code = dto.couponCode();
+        Long userId = dto.userId();
 
         try {
             // 발급 기록 저장
@@ -66,11 +70,12 @@ public class CouponKafkaConsumerService {
                               .coupon(coupon)
                               .build()
             );
-            log.info("[CONSUMER] 쿠폰 발급 완료: userId={}, code={}", dto.userId(), code);
+            log.info("[CONSUMER] 쿠폰 발급 완료: userId={}, code={}", userId, code);
         } catch (DataAccessException | NotFoundException ex) {
             log.error("[CONSUMER] 저장 실패, Redis 복구: {}", code, ex);
             // 롤백된 DB 재고→ 다시 복구
             couponStockRepository.increment(code);
+            redisTemplate.opsForSet().remove("applied_user:" + code, String.valueOf(userId));
         } finally {
             ack.acknowledge();
         }
