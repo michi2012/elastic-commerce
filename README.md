@@ -9,7 +9,7 @@ ElasticCommerce는 엘라스틱서치, 카프카를 활용한 e-커머스 플랫
 - **분산 잠금**: Redis(AWS ElasticCache)
 - **검색 엔진**: Elasticsearch(Elastic Cloud)
 - **메시징 시스템**: Apache Kafka(AWS Msk)
-- **인증/인가**: JWT
+- **인증/인가**: Spring Security(JWT)
 
 ---
 
